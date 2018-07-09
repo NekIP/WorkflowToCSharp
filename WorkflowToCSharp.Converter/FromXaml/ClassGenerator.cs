@@ -14,13 +14,13 @@ namespace WorkflowToCSharp.Converter
 	public class ClassGeneratorImpl : ClassGenerator
 	{
 		private readonly MethodGenerator methodGenerator;
-		private readonly CodeRefactor codeRefactor;
+		private readonly CustomMethodAlocator customMethodAlocator;
 
 		public ClassGeneratorImpl(MethodGenerator methodGenerator,
-			CodeRefactor codeRefactor)
+			CustomMethodAlocator customMethodAlocator)
 		{
 			this.methodGenerator = methodGenerator;
-			this.codeRefactor = codeRefactor;
+			this.customMethodAlocator = customMethodAlocator;
 		}
 
 		public ClassCode Generate(XamlDocument document)
@@ -49,7 +49,7 @@ namespace WorkflowToCSharp.Converter
 						break;
 				}
 			}
-			codeRefactor.AllocateCustomMethods(result.CodeBlocks);
+			customMethodAlocator.Allocate(result.CodeBlocks);
 			return result;
 		}
 

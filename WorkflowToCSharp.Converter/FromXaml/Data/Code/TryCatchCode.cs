@@ -6,6 +6,6 @@ namespace WorkflowToCSharp.Converter.Data
 	{
 		public Sequence Try { get; set; }
 		public List<CatchCode> Catches { get; set; }
-		public Sequence Finaly { get; set; }
+		public Sequence Finally { get; set; }
 	}
 }

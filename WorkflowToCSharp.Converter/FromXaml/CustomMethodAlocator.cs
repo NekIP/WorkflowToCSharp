@@ -5,21 +5,21 @@ using WorkflowToCSharp.Converter.Extensions;
 
 namespace WorkflowToCSharp.Converter
 {
-	public interface CodeRefactor
+	public interface CustomMethodAlocator
 	{
-		void AllocateCustomMethods(List<Code> codeBlock);
+		void Allocate(List<Code> codeBlock);
 	}
 
-	public class CodeRefactorImpl : CodeRefactor
+	public class CustomMethodAlocatorImpl : CustomMethodAlocator
 	{
 		private readonly FieldManager fieldManager;
 
-		public CodeRefactorImpl(FieldManager fieldManager)
+		public CustomMethodAlocatorImpl(FieldManager fieldManager)
 		{
 			this.fieldManager = fieldManager;
 		}
 
-		public void AllocateCustomMethods(List<Code> codeBlocks)
+		public void Allocate(List<Code> codeBlocks)
 		{
 			fieldManager.ParseAndInitialize(codeBlocks);
 			var customActivityMethods = new List<Method>();
@@ -69,41 +69,72 @@ namespace WorkflowToCSharp.Converter
 		{
 			var result = new Method
 			{
-				AccessModify = "private",
+				AccessModifier = "private",
 				Name = entity.Name,
 				ReturnType = entity.ReturnType,
-				InArguments = new List<VariableCode>(),
+				Parameters = new List<MethodParameter>(),
 				Sequence = new Sequence()
 			};
+			var objectName = "entity";
 			result.Sequence.Values.Add(new AssignCode
 			{
-				To = $"var {entity.Name.FirstLetterLower()}",
+				To = $"var {objectName}",
 				Value = $"new {entity.Name}()"
 			});
-			foreach (AssignCode assign in entity.Assigns)
+			var finallyBlock = new Sequence();
+			foreach (CustomMethodAssignCode assign in entity.Assigns)
 			{
-				result.InArguments.AddRange(fieldManager.GetUsingVariables(assign.Value));
+				result.Parameters.AddRange(fieldManager.GetUsingVariables(assign.Value)
+					.Select(x => new MethodParameter
+					{
+						Variable = x,
+						Direction = assign.Direction
+					}));
 				result.Sequence.Values.Add(new AssignCode
 				{
-					To = $"{entity.Name.FirstLetterLower()}.{assign.To}",
+					To = $"{objectName}.{assign.To}",
 					Value = assign.Value
 				});
-			}
-			for (var i = result.InArguments.Count - 1; i >= 0; i--)
-			{
-				VariableCode inArgument = result.InArguments[i];
-				if (result.InArguments.Where(x => x.Name == inArgument.Name).Count() > 1)
+				if (assign.Direction == ParameterDirection.InOut ||
+					assign.Direction == ParameterDirection.Out)
 				{
-					result.InArguments.RemoveAt(i);
+					finallyBlock.Values.Add(new AssignCode
+					{
+						To = assign.Value,
+						Value = $"{objectName}.{assign.To}"
+					});
 				}
 			}
-			if (entity.ReturnType == "void")
+			for (var i = result.Parameters.Count - 1; i >= 0; i--)
 			{
-				result.Sequence.Values.Add(new StringCode { Value = $"{entity.Name.FirstLetterLower()}.Execute()" });
+				MethodParameter parameter = result.Parameters[i];
+				if (result.Parameters.Where(x => x.Variable.Name == parameter.Variable.Name).Count() > 1)
+				{
+					result.Parameters.RemoveAt(i);
+				}
+			}
+			var executeLine = $"{objectName}.Execute()";
+			if (entity.ReturnType != "void")
+			{
+				executeLine = "return " + executeLine;
+			}
+			var executeStringCode = new StringCode
+			{
+				Value = executeLine
+			};
+			if (finallyBlock.Values.Count > 0)
+			{
+				var tryFinally = new TryCatchCode
+				{
+					Try = new StringCode { Value = executeLine }.WrapInSequence(),
+					Catches = new List<CatchCode>(),
+					Finally = finallyBlock
+				};
+				result.Sequence.Values.Add(tryFinally);
 			}
 			else
 			{
-				result.Sequence.Values.Add(new StringCode { Value = $"return {entity.Name.FirstLetterLower()}.Execute()" });
+				result.Sequence.Values.Add(executeStringCode);
 			}
 			entity.Method = result;
 			return result;

@@ -41,8 +41,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FromXaml\ClassGenerator.cs" />
+    <Compile Include="FromXaml\Extensions\ConstructionExtension.cs" />
     <Compile Include="FromXaml\FieldManager.cs" />
-    <Compile Include="FromXaml\CodeRefactor.cs" />
+    <Compile Include="FromXaml\CustomMethodAlocator.cs" />
     <Compile Include="FromXaml\Data\Code\ClassCode.cs" />
     <Compile Include="FromXaml\Data\Code\CustomActivityCode.cs" />
     <Compile Include="FromXaml\Data\Code\FieldCode.cs" />

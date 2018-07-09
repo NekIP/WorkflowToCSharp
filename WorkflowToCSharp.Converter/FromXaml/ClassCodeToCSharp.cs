@@ -74,7 +74,7 @@ namespace WorkflowToCSharp.Converter
 		private void WriteMethod(StringWriter writer, Method method, int tabs)
 		{
 			writer.WriteLine();
-			writer.WriteLineTabs($"{method.AccessModify} {method.ReturnType} {method.Name}({ConvertParameters(method.InArguments, x => x.Type + " " + x.Name)})", tabs);
+			writer.WriteLineTabs($"{method.AccessModifier} {method.ReturnType} {method.Name}({ConvertParameters(method.Parameters, x => x.Type + " " + x.Name)})", tabs);
 			WriteConstruction(writer, method.Sequence, tabs + 1);
 		}
 
@@ -136,6 +136,11 @@ namespace WorkflowToCSharp.Converter
 				writer.WriteLineTabs($"catch ({catchCode.Exception})", tabs);
 				WriteConstruction(writer, catchCode.Body, tabs + 1);
 			}
+			if (tryCatchCode.Finally != null)
+			{
+				writer.WriteLineTabs($"finally", tabs);
+				WriteConstruction(writer, tryCatchCode.Finally, tabs + 1);
+			}
 		}
 
 		private void WriteAssign(StringWriter writer, AssignCode assign, int tabs)
@@ -157,24 +162,24 @@ namespace WorkflowToCSharp.Converter
 		{
 			if (customActivityCode.Method != null)
 			{
-				foreach (VariableCode variable in customActivityCode.Method.InArguments)
+				foreach (MethodParameter parameter in customActivityCode.Method.Parameters)
 				{
-					if (!variable.WasInitialized)
+					if (!parameter.Variable.WasInitialized)
 					{
-						writer.WriteLineTabs($"{variable.Type} {variable.Name};", tabs);
-						variable.WasInitialized = true;
+						writer.WriteLineTabs($"{parameter.Variable.Type} {parameter.Variable.Name} = default({parameter.Variable.Type});", tabs);
+						parameter.Variable.WasInitialized = true;
 					}
 				}
 				if (string.IsNullOrWhiteSpace(customActivityCode.ResultTo))
 				{
-					writer.WriteLineTabs($"{customActivityCode.Method.Name}({string.Join(", ", ConvertParameters(customActivityCode.Method.InArguments, x => x.Name))});", tabs);
+					writer.WriteLineTabs($"{customActivityCode.Method.Name}({string.Join(", ", ConvertParameters(customActivityCode.Method.Parameters, x => x.Name))});", tabs);
 				}
 				else
 				{
 					WriteAssign(writer, new AssignCode
 					{
 						To = customActivityCode.ResultTo,
-						Value = $"{customActivityCode.Method.Name}({ConvertParameters(customActivityCode.Method.InArguments, x => x.Name)})"
+						Value = $"{customActivityCode.Method.Name}({ConvertParameters(customActivityCode.Method.Parameters, x => x.Name)})"
 					}, tabs);
 				}
 			}
@@ -196,13 +201,27 @@ namespace WorkflowToCSharp.Converter
 			}
 		}
 
-		private string ConvertParameters(List<VariableCode> parameters, Func<VariableCode, string> convertor)
+		private string ConvertParameters(List<MethodParameter> parameters, Func<VariableCode, string> convertor)
 		{
 			if (parameters is null)
 			{
 				return "";
 			}
-			return string.Join(", ", parameters.Select(convertor));
+			return string.Join(", ", parameters.Select(x => GetModificationForDirection(x.Direction) + convertor(x.Variable)));
+		}
+
+		private string GetModificationForDirection(ParameterDirection direction)
+		{
+			switch (direction)
+			{
+				case ParameterDirection.In:
+					return "";
+				case ParameterDirection.Out:
+					return "out ";
+				case ParameterDirection.InOut:
+					return "ref ";
+			}
+			throw new Exception();
 		}
 	}
 }

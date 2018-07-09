@@ -6,8 +6,21 @@ namespace WorkflowToCSharp.Converter.Data
 	{
 		public string Name { get; set; }
 		public string ReturnType { get; set; }
-		public string AccessModify { get; set; }
-		public List<VariableCode> InArguments { get; set; }
+		public string AccessModifier { get; set; }
+		public List<MethodParameter> Parameters { get; set; }
 		public Sequence Sequence { get; set; }
+	}
+
+	public class MethodParameter
+	{
+		public VariableCode Variable { get; set; }
+		public ParameterDirection Direction { get; set; }
+	}
+
+	public enum ParameterDirection
+	{
+		In,
+		Out,
+		InOut
 	}
 }

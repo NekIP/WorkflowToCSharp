@@ -5,5 +5,6 @@
 	}
 	public class Construction : Code
 	{
+		public string Comment { get; set; }
 	}
 }

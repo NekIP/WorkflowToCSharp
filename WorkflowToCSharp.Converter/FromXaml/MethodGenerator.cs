@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using WorkflowToCSharp.Assistants;
@@ -26,9 +27,9 @@ namespace WorkflowToCSharp.Converter
 			var result = new Method
 			{
 				Name = "Execute",
-				AccessModify = "public",
+				AccessModifier = "public",
 				ReturnType = "void",
-				Sequence = WrapInSequence(Parse(root))
+				Sequence = Parse(root).WrapInSequence()
 			};
 			return result;
 		}
@@ -95,11 +96,11 @@ namespace WorkflowToCSharp.Converter
 		{
 			var result = new IfCode();
 			XElement elementCondition = element.Child("If.Condition");
-			result.Condition = GetArgument(elementCondition.Elements().FirstOrDefault());
+			result.Condition = GetValueOfArgument(elementCondition.Elements().FirstOrDefault());
 			XElement elementThen = element.Child("If.Then");
 			if (elementThen != null)
 			{
-				result.Then = WrapInSequence(Parse(elementThen.Elements().FirstOrDefault()));
+				result.Then = Parse(elementThen.Elements().FirstOrDefault())?.WrapInSequence();
 			}
 			else
 			{
@@ -108,7 +109,7 @@ namespace WorkflowToCSharp.Converter
 			XElement elementElse = element.Child("If.Else");
 			if (elementElse != null)
 			{
-				result.Else = WrapInSequence(Parse(elementElse.Elements().FirstOrDefault()));
+				result.Else = Parse(elementElse.Elements().FirstOrDefault())?.WrapInSequence();
 			}
 			// TODO: elseif
 			return result;
@@ -118,9 +119,9 @@ namespace WorkflowToCSharp.Converter
 		{
 			var result = new AssignCode();
 			XElement elementTo = element.Child("Assign.To");
-			result.To = GetArgument(elementTo.Elements().FirstOrDefault());
+			result.To = GetValueOfArgument(elementTo.Elements().FirstOrDefault());
 			XElement elementValue = element.Child("Assign.Value");
-			result.Value = GetArgument(elementValue.Elements().FirstOrDefault());
+			result.Value = GetValueOfArgument(elementValue.Elements().FirstOrDefault());
 			return result;
 		}
 
@@ -128,13 +129,13 @@ namespace WorkflowToCSharp.Converter
 		{
 			var result = new TryCatchCode();
 			XElement elementTry = element.Child("TryCatch.Try");
-			result.Try = WrapInSequence(Parse(elementTry.Elements().FirstOrDefault()));
+			result.Try = Parse(elementTry.Elements().FirstOrDefault())?.WrapInSequence();
 			result.Catches = new List<CatchCode>();
 			IEnumerable<XElement> catchElements = element.Child("TryCatch.Catches").Children("Catch");
 			foreach (var catchElement in catchElements)
 			{
 				XElement activityAction = catchElement.Child("ActivityAction");
-				Sequence body = WrapInSequence(Parse(activityAction.Elements().Last()));
+				Sequence body = Parse(activityAction.Elements().Last())?.WrapInSequence();
 				XElement argument = activityAction.Child("ActivityAction.Argument").Child("DelegateInArgument");
 				string exceptionType = argument.GetAttribute("TypeArguments").Value;
 				if (exceptionType.Contains(":"))
@@ -151,8 +152,9 @@ namespace WorkflowToCSharp.Converter
 			return result;
 		}
 
-		private string GetArgument(XElement element)
+		private string GetValueOfArgument(XElement element)
 		{
+
 			string result = element.Value;
 			if (result == "True" || result == "False")
 			{
@@ -166,7 +168,7 @@ namespace WorkflowToCSharp.Converter
 			var result = new CustomActivityCode
 			{
 				Name = element.Name.LocalName,
-				Assigns = new List<AssignCode>(),
+				Assigns = new List<CustomMethodAssignCode>(),
 				ReturnType = "void"
 			};
 			IEnumerable<XElement> children = element.Elements();
@@ -177,10 +179,10 @@ namespace WorkflowToCSharp.Converter
 				{
 					string[] names = name.Split('.');
 					string variableName = names.Last();
+					XElement argumentElement = child.Elements().FirstOrDefault();
 					if (variableName == "Result")
 					{
-						XElement argumentElement = child.Elements().FirstOrDefault();
-						result.ResultTo = GetArgument(argumentElement);
+						result.ResultTo = GetValueOfArgument(argumentElement);
 						string returnType = argumentElement.GetAttribute("TypeArguments").Value;
 						if (returnType.Contains(":"))
 						{
@@ -189,10 +191,11 @@ namespace WorkflowToCSharp.Converter
 						result.ReturnType = returnType;
 						continue;
 					}
-					var assign = new AssignCode
+					var assign = new CustomMethodAssignCode
 					{
 						To = variableName,
-						Value = GetArgument(child.Elements().FirstOrDefault())
+						Value = GetValueOfArgument(argumentElement),
+						Direction = GetArgumentType(argumentElement)
 					};
 					result.Assigns.Add(assign);
 				}
@@ -200,19 +203,18 @@ namespace WorkflowToCSharp.Converter
 			return result;
 		}
 
-		private Sequence WrapInSequence(Construction construction)
+		private ParameterDirection GetArgumentType(XElement argumentElement)
 		{
-			if (construction is Sequence sequence)
+			switch (argumentElement.Name.LocalName)
 			{
-				return sequence;
+				case "InArgument":
+					return ParameterDirection.In;
+				case "OutArgument":
+					return ParameterDirection.Out;
+				case "InOutArgument":
+					return ParameterDirection.InOut;
 			}
-			return new Sequence
-			{
-				Values = new List<Construction>
-				{
-					construction
-				}
-			};
+			throw new Exception();
 		}
 	}
 }

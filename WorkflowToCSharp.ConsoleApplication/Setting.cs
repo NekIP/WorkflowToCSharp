@@ -24,7 +24,7 @@ namespace WorkflowToCSharp.ConsoleApplication
 			container.Register<ClassCodeToCSharp, ClassCodeToCSharpImpl>();
 			container.Register<ClassGenerator, ClassGeneratorImpl>();
 			container.Register<MethodGenerator, MethodGeneratorImpl>();
-			container.Register<CodeRefactor, CodeRefactorImpl>();
+			container.Register<CustomMethodAlocator, CustomMethodAlocatorImpl>();
 			container.Register<FieldManager, FieldManagerImpl>();
 			container.Register<Log, ConsoleLog>();
 		}
